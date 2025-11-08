@@ -54,3 +54,23 @@ ul { padding-left: 18px; }
 #photo-result { margin-top: 8px; padding:8px; background:#f8fafc; border-radius:8px; }
 #cal-items li { margin-bottom:6px; display:flex; justify-content:space-between; gap:10px; }
 small { color: var(--muted); }
+
+nav {
+  margin-bottom: 1rem;
+}
+nav a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  margin-right: 8px;
+}
+nav a:hover { text-decoration: underline; }
+.logout {
+  background: none;
+  color: #ef4444;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+}
+.logout:hover { text-decoration: underline; }
+

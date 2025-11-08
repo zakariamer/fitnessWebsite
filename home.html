@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FitAI Home</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏠 FitAI Dashboard</h1>
+      <p>Welcome back, <strong>{{ user["username"] }}</strong>!</p>
+      <nav>
+        <a href="/home">Home</a> |
+        <a href="/app">App</a> |
+        <form style="display:inline;" method="post" action="/logout">
+          <button type="submit" class="logout">Logout</button>
+        </form>
+      </nav>
+    </header>
+
+    <main>
+      <div class="card">
+        <h2>🔥 Calorie Summary</h2>
+        <p>Today: <strong>{{ calories["today"] }} kcal</strong></p>
+        <p>This week: <strong>{{ calories["week"] }} kcal</strong></p>
+      </div>
+
+      <div class="card">
+        <h2>🏋️ Exercise Progress</h2>
+        <p>Completed: {{ progress["completed"] }}</p>
+        <p>Remaining: {{ progress["remaining"] }}</p>
+      </div>
+
+      <div class="card">
+        <h2>💪 Personal Info</h2>
+        <ul>
+          <li>Age: {{ user["age"] or "—" }}</li>
+          <li>BMI: {{ user["bmi"] or "—" }}</li>
+          <li>Goal: {{ user["goal"] or "—" }}</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>🌟 Motivation</h2>
+        <blockquote id="quote"></blockquote>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const quotes = [
+      "Push yourself, because no one else is going to do it for you.",
+      "Progress, not perfection.",
+      "The pain you feel today will be the strength you feel tomorrow.",
+      "Don’t stop when you’re tired. Stop when you’re done.",
+      "Discipline beats motivation."
+    ];
+    document.getElementById("quote").innerText = quotes[Math.floor(Math.random()*quotes.length)];
+  </script>
+</body>
+</html>
