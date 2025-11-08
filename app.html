@@ -44,17 +44,7 @@
             <input id="cal-num" type="number" placeholder="Calories" />
             <button type="submit">➕ Add Entry</button>
           </form>
-          <div id="cal-summary" style="margin: 20px 0; padding: 15px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-radius: 12px; text-align: center;">
-            <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 5px;">Total Calories Today</div>
-            <div id="cal-total" style="font-size: 2rem; font-weight: 700; color: var(--accent);">0 kcal</div>
-          </div>
-          <div id="cal-items-container" style="margin-top: 20px;">
-            <h5 style="margin-bottom: 15px; color: var(--text);">📝 Recent Entries</h5>
-            <ul id="cal-items" style="list-style: none; padding: 0;"></ul>
-            <div id="cal-empty" style="text-align: center; padding: 30px; color: var(--text-light); display: none;">
-              No entries yet. Add your first calorie entry above!
-            </div>
-          </div>
+          <ul id="cal-items"></ul>
         </section>
 
         <section>
@@ -79,20 +69,13 @@
   <script>
     // Initialize app functionality when page loads
     document.addEventListener("DOMContentLoaded", function() {
-      // Load recommendations and calories immediately
+      // Load recommendations and calories
       if (typeof loadRecs === 'function') {
         loadRecs();
       }
       if (typeof loadCals === 'function') {
         loadCals();
       }
-      
-      // Also reload calories every 30 seconds to keep it updated
-      setInterval(function() {
-        if (typeof loadCals === 'function') {
-          loadCals();
-        }
-      }, 30000);
     });
   </script>
 </body>

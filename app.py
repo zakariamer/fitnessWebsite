@@ -277,7 +277,8 @@ def estimate_calories_from_image(image_path):
         "banana": (105, "1 medium"),
         "salad": (150, "1 bowl"),
         "burger": (354, "1 burger"),
-        "sushi": (48, "1 piece")
+        "sushi": (48, "1 piece"),
+        "chicken": (165, "1 chicken breast")
     }
     items = []
     total = 0
