@@ -264,125 +264,117 @@ def allowed_file(filename):
 
 def estimate_calories_from_image(image_path):
     """
-    Uses Spoonacular Food Recognition API to identify food and estimate calories.
-    Falls back to simple heuristics if API key is not set.
-    Returns: { "items": [{"name": "...", "confidence": 0.9, "calories": 285.0, "serving_size": "..."}],
+    Uses Spoonacular Food Recognition API to identify food, get calories, and ingredients.
+    Only uses fallback if API key is not set.
+    Returns: { "items": [{"name": "...", "confidence": 0.9, "calories": 285.0, "serving_size": "...", "ingredients": [...]}],
                "total_calories": 285.0 }
     """
-    # Try using Spoonacular API if key is available
-    if SPOONACULAR_API_KEY:
-        try:
-            # Read image file
-            with open(image_path, 'rb') as img_file:
-                img_data = img_file.read()
-            
-            # Call Spoonacular Food Recognition API (Classify a Food Image)
-            url = "https://api.spoonacular.com/food/images/classify"
-            headers = {
-                "x-api-key": SPOONACULAR_API_KEY
-            }
-            files = {
-                "file": (os.path.basename(image_path), img_data, "image/jpeg")
-            }
-            
-            response = requests.post(url, headers=headers, files=files, timeout=15)
-            
-            if response.status_code == 200:
-                data = response.json()
-                items = []
-                total_calories = 0
+    # Only use API if key is available - no fallback if API fails (show error instead)
+    if not SPOONACULAR_API_KEY:
+        raise Exception("Spoonacular API key not set. Please set SPOONACULAR_API_KEY environment variable.")
+    
+    try:
+        # Read image file
+        with open(image_path, 'rb') as img_file:
+            img_data = img_file.read()
+        
+        # Step 1: Classify the food image
+        classify_url = "https://api.spoonacular.com/food/images/classify"
+        headers = {
+            "x-api-key": SPOONACULAR_API_KEY
+        }
+        files = {
+            "file": (os.path.basename(image_path), img_data, "image/jpeg")
+        }
+        
+        classify_response = requests.post(classify_url, headers=headers, files=files, timeout=15)
+        
+        if classify_response.status_code != 200:
+            error_msg = classify_response.json().get("message", "API request failed")
+            raise Exception(f"Spoonacular API error: {error_msg}")
+        
+        classify_data = classify_response.json()
+        category = classify_data.get("category", "")
+        confidence = classify_data.get("confidence", 0.7)
+        
+        if not category:
+            raise Exception("Could not identify food in image")
+        
+        food_name = category.replace("_", " ").title()
+        
+        # Step 2: Get nutrition information using recipe search
+        # Search for recipes matching this food
+        recipe_search_url = "https://api.spoonacular.com/recipes/complexSearch"
+        recipe_params = {
+            "query": category,
+            "number": 1,
+            "apiKey": SPOONACULAR_API_KEY,
+            "addRecipeInformation": "true"
+        }
+        
+        recipe_response = requests.get(recipe_search_url, params=recipe_params, timeout=10)
+        
+        calories = 250  # Default
+        serving_size = "1 serving"
+        ingredients_list = []
+        
+        if recipe_response.status_code == 200:
+            recipe_data = recipe_response.json()
+            if "results" in recipe_data and len(recipe_data["results"]) > 0:
+                recipe = recipe_data["results"][0]
                 
-                # Process recognized food categories
-                category = data.get("category", "")
-                if category:
-                    confidence = data.get("confidence", 0.7)
-                    food_name = category.replace("_", " ").title()
-                    
-                    # Get nutrition info for the recognized food
-                    # Use the search endpoint to find nutrition data
-                    search_url = "https://api.spoonacular.com/food/products/search"
-                    search_params = {
-                        "query": category,
-                        "number": 1,
-                        "apiKey": SPOONACULAR_API_KEY
-                    }
-                    
-                    calories_per_serving = 250  # Default estimate
-                    serving_size = "1 serving"
-                    
-                    try:
-                        search_response = requests.get(search_url, params=search_params, timeout=10)
-                        if search_response.status_code == 200:
-                            search_data = search_response.json()
-                            if "products" in search_data and len(search_data["products"]) > 0:
-                                product = search_data["products"][0]
-                                # Try to get nutrition info
-                                if "nutrition" in product:
-                                    nutrition = product["nutrition"]
-                                    if "calories" in nutrition:
-                                        calories_per_serving = int(nutrition["calories"])
-                                    if "servingSize" in nutrition:
-                                        serving_size = nutrition["servingSize"]
-                    except:
-                        pass  # Use defaults if search fails
-                    
-                    items.append({
-                        "name": food_name,
-                        "confidence": min(float(confidence), 0.95),
-                        "calories": calories_per_serving,
-                        "serving_size": serving_size
-                    })
-                    total_calories = calories_per_serving
+                # Get calories from nutrition
+                if "nutrition" in recipe:
+                    nutrition = recipe["nutrition"]
+                    if "nutrients" in nutrition:
+                        for nutrient in nutrition["nutrients"]:
+                            if nutrient.get("name") == "Calories":
+                                calories = int(nutrient.get("amount", 250))
+                                break
+                    if "weightPerServing" in nutrition:
+                        serving_size = f"{nutrition['weightPerServing'].get('amount', 1)} {nutrition['weightPerServing'].get('unit', 'serving')}"
                 
-                if items:
-                    return {"items": items, "total_calories": round(total_calories, 1)}
-        except Exception as e:
-            print(f"Spoonacular API error: {e}")
-            # Fall through to fallback method
-    
-    # Fallback: Simple filename-based recognition (original method)
-    fname = os.path.basename(image_path).lower()
-    mapping = {
-        "pizza": (285, "1 slice"),
-        "banana": (105, "1 medium"),
-        "salad": (150, "1 bowl"),
-        "burger": (354, "1 burger"),
-        "sushi": (48, "1 piece"),
-        "chicken": (165, "1 chicken breast"),
-        "apple": (95, "1 medium"),
-        "orange": (62, "1 medium"),
-        "bread": (79, "1 slice"),
-        "rice": (130, "1 cup cooked"),
-        "pasta": (131, "1 cup cooked"),
-        "egg": (78, "1 large"),
-        "milk": (103, "1 cup"),
-        "cheese": (113, "1 oz"),
-        "fish": (206, "1 fillet"),
-        "beef": (250, "3 oz"),
-        "pork": (242, "3 oz")
-    }
-    items = []
-    total = 0
-    for k, (cal, size) in mapping.items():
-        if k in fname:
-            items.append({"name": k, "confidence": 0.9, "calories": cal, "serving_size": size})
-            total += cal
-    
-    if not items:
-        # Final fallback: estimate based on image size
-        try:
-            im = Image.open(image_path)
-            w, h = im.size
-            area = w * h
-            scale = min(max(area / (500*500), 0.5), 3.0)
-            default = 300 * scale
-            items.append({"name": "unknown_food", "confidence": 0.5, "calories": round(default, 0), "serving_size": "est"})
-            total += default
-        except Exception:
-            items.append({"name": "unknown_food", "confidence": 0.2, "calories": 300, "serving_size": "est"})
-            total += 300
-    
-    return {"items": items, "total_calories": round(total, 1)}
+                # Get ingredients
+                if "extendedIngredients" in recipe:
+                    ingredients_list = [ing.get("name", "") for ing in recipe["extendedIngredients"]]
+                elif "missedIngredients" in recipe:
+                    ingredients_list = [ing.get("name", "") for ing in recipe.get("missedIngredients", [])]
+                    ingredients_list.extend([ing.get("name", "") for ing in recipe.get("usedIngredients", [])])
+        
+        # If recipe search didn't work, try direct nutrition guess
+        if calories == 250 and not ingredients_list:
+            nutrition_url = "https://api.spoonacular.com/recipes/guessNutrition"
+            nutrition_params = {
+                "title": food_name,
+                "apiKey": "89e023cc2d194d80aa684f404953fe75"
+            }
+            
+            nutrition_response = requests.get(nutrition_url, params=nutrition_params, timeout=10)
+            if nutrition_response.status_code == 200:
+                nutrition_data = nutrition_response.json()
+                if "calories" in nutrition_data:
+                    calories = int(nutrition_data["calories"].get("value", 250))
+                if "ingredients" in nutrition_data:
+                    ingredients_list = [ing.get("name", "") for ing in nutrition_data["ingredients"]]
+        
+        # Build result
+        items = [{
+            "name": food_name,
+            "confidence": min(float(confidence), 0.95),
+            "calories": calories,
+            "serving_size": serving_size,
+            "ingredients": ingredients_list[:10] if ingredients_list else []  # Limit to 10 ingredients
+        }]
+        
+        return {
+            "items": items,
+            "total_calories": round(calories, 1)
+        }
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Network error connecting to Spoonacular API: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error processing image: {str(e)}")
 
 @app.route("/api/upload_photo", methods=["POST"])
 def upload_photo():
@@ -398,12 +390,15 @@ def upload_photo():
     unique = f"{secrets.token_hex(8)}_{fn}"
     path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
     f.save(path)
-    # call the AI stub — replace with your model/API call
-    result = estimate_calories_from_image(path)
-    # Return the image URL so frontend can display it
-    image_url = f"/uploads/{unique}"
-    result["image_url"] = image_url
-    return jsonify({"ok": True, "result": result})
+    # Call the AI food recognition
+    try:
+        result = estimate_calories_from_image(path)
+        # Return the image URL so frontend can display it
+        image_url = f"/uploads/{unique}"
+        result["image_url"] = image_url
+        return jsonify({"ok": True, "result": result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 # Serve uploaded images
 @app.route("/uploads/<filename>")

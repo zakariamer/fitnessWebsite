@@ -219,8 +219,16 @@ async function uploadPhoto(){
         const confPercent = (it.confidence * 100).toFixed(0);
         html += `<li style="margin-bottom: 8px; padding: 8px; background: white; border-radius: 8px; border-left: 4px solid var(--accent);">
           <strong>${it.name}</strong> — ${it.calories} kcal 
-          <span style="color: var(--text-light); font-size: 0.9rem;">(${confPercent}% confidence, ${it.serving_size})</span>
-        </li>`;
+          <span style="color: var(--text-light); font-size: 0.9rem;">(${confPercent}% confidence, ${it.serving_size})</span>`;
+        
+        // Show ingredients if available
+        if (it.ingredients && it.ingredients.length > 0) {
+          html += `<div style="margin-top: 5px; font-size: 0.85rem; color: var(--text-light);">
+            <strong>Ingredients:</strong> ${it.ingredients.slice(0, 5).join(", ")}${it.ingredients.length > 5 ? "..." : ""}
+          </div>`;
+        }
+        
+        html += `</li>`;
       });
       html += `</ul></div>`;
     }
@@ -271,6 +279,18 @@ async function uploadPhoto(){
     }
   } catch (e) {
     console.error(e);
-    resEl.innerHTML = `<div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; color: var(--danger); text-align: center;">❌ Error analyzing image: ${e.error || "Unknown error"}</div>`;
+    let errorMsg = "Unknown error";
+    if (e.error) {
+      errorMsg = e.error;
+    } else if (typeof e === 'string') {
+      errorMsg = e;
+    } else if (e.message) {
+      errorMsg = e.message;
+    }
+    resEl.innerHTML = `<div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; color: var(--danger); text-align: center;">
+      <strong>❌ Error analyzing image</strong><br/>
+      <span style="font-size: 0.9rem;">${errorMsg}</span><br/>
+      <span style="font-size: 0.8rem; margin-top: 10px; display: block;">Make sure your Spoonacular API key is set correctly.</span>
+    </div>`;
   }
 }
