@@ -1,0 +1,301 @@
+import os
+import sqlite3
+import secrets
+import datetime
+from flask import (
+    Flask, g, render_template, request, redirect, url_for, session, jsonify
+)
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from PIL import Image
+
+# Configuration
+APP_SECRET = os.environ.get("APP_SECRET", secrets.token_hex(16))
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
+ALLOWED_EXT = {"png", "jpg", "jpeg"}
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+app = Flask(__name__)
+app.secret_key = APP_SECRET
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+DATABASE = os.path.join(os.path.dirname(__file__), "data.sqlite")
+
+# --- DB helpers ---
+def get_db():
+    db = getattr(g, "_database", None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+        db.row_factory = sqlite3.Row
+    return db
+
+def init_db():
+    schema = """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        age INTEGER,
+        height_cm REAL,
+        weight_kg REAL,
+        bmi REAL,
+        goal TEXT,
+        created_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS calories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        description TEXT,
+        calories REAL,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+    """
+    db = get_db()
+    db.executescript(schema)
+    db.commit()
+
+@app.before_first_request
+def startup():
+    init_db()
+
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, "_database", None)
+    if db is not None:
+        db.close()
+
+# --- Auth routes ---
+def current_user():
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    return row
+
+@app.route("/")
+def index():
+    user = current_user()
+    return render_template("index.html", user=user)
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    age = int(data.get("age") or 0)
+    height_cm = float(data.get("height_cm") or 0)
+    weight_kg = float(data.get("weight_kg") or 0)
+    goal = data.get("goal") or "maintain"
+    bmi = None
+    if height_cm > 0:
+        h_m = height_cm / 100.0
+        bmi = round(weight_kg / (h_m*h_m), 1)
+    pw_hash = generate_password_hash(password)
+    created_at = datetime.datetime.utcnow().isoformat()
+    db = get_db()
+    try:
+        cur = db.execute(
+            "INSERT INTO users (username, password_hash, age, height_cm, weight_kg, bmi, goal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, pw_hash, age, height_cm, weight_kg, bmi, goal, created_at)
+        )
+        db.commit()
+        uid = cur.lastrowid
+    except Exception as e:
+        return jsonify({"ok": False, "error": "username exists or bad data"}), 400
+    session["user_id"] = uid
+    return jsonify({"ok": True, "user_id": uid})
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if not row:
+        return jsonify({"ok": False, "error": "invalid credentials"}), 400
+    if not check_password_hash(row["password_hash"], password):
+        return jsonify({"ok": False, "error": "invalid credentials"}), 400
+    session["user_id"] = row["id"]
+    return jsonify({"ok": True})
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+# --- Profile & recommendations ---
+@app.route("/api/profile", methods=["GET", "POST"])
+def profile():
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "error": "not logged in"}), 403
+    db = get_db()
+    if request.method == "GET":
+        return jsonify({"ok": True, "user": dict(user)})
+    else:
+        data = request.json
+        age = int(data.get("age") or user["age"] or 0)
+        height_cm = float(data.get("height_cm") or user["height_cm"] or 0)
+        weight_kg = float(data.get("weight_kg") or user["weight_kg"] or 0)
+        goal = data.get("goal") or user["goal"] or "maintain"
+        bmi = None
+        if height_cm > 0:
+            h_m = height_cm/100.0
+            bmi = round(weight_kg / (h_m*h_m), 1)
+        db.execute(
+            "UPDATE users SET age=?, height_cm=?, weight_kg=?, bmi=?, goal=? WHERE id=?",
+            (age, height_cm, weight_kg, bmi, goal, user["id"])
+        )
+        db.commit()
+        row = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+        return jsonify({"ok": True, "user": dict(row)})
+
+def generate_recommendations(age, bmi, goal):
+    # Simple rules-based engine that can be improved or replaced by ML model.
+    recs = []
+    # Base suggestions by BMI
+    if bmi is None:
+        recs.append("Please add height and weight so we can recommend tailored exercises.")
+    else:
+        if bmi < 18.5:
+            recs.append("Increase strength training (full body) 2-3x/week and add calorie-dense healthy foods.")
+        elif 18.5 <= bmi < 25:
+            recs.append("Mix of cardio (30 min moderate 3x/week) and resistance training (2x/week).")
+        elif 25 <= bmi < 30:
+            recs.append("Focus on moderate cardio (walking, cycling) 4-5x/week and progressive resistance training 2x/week.")
+        else:
+            recs.append("Low-impact cardio (walking, swimming) daily if possible and start strength training 2x/week. Consult a clinician.")
+
+    # Age adjustments
+    if age >= 60:
+        recs.append("Prioritize balance and flexibility (yoga, tai chi) and functional strength work.")
+    elif age >= 40:
+        recs.append("Include mobility work and progressive strength training; allow extra recovery.")
+    else:
+        recs.append("Include a mix of HIIT or interval cardio if cleared for vigorous exercise.")
+
+    # Goal-specific
+    if goal == "lose":
+        recs.append("Calorie deficit + cardio + strength 3x/week. Track intake and weekly progress.")
+    elif goal == "gain":
+        recs.append("Calorie surplus + focused strength program (3-5x/week) with progressive overload.")
+    else:
+        recs.append("Maintenance: balanced training with two strength sessions and 2-3 cardio sessions/week.")
+
+    return recs
+
+@app.route("/api/recommendations", methods=["GET"])
+def recommendations():
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "error": "not logged in"}), 403
+    recs = generate_recommendations(user["age"], user["bmi"], user["goal"])
+    return jsonify({"ok": True, "recs": recs})
+
+# --- Calorie tracking (manual) ---
+@app.route("/api/calories", methods=["GET", "POST", "DELETE"])
+def calories():
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "error": "not logged in"}), 403
+    db = get_db()
+    if request.method == "GET":
+        rows = db.execute("SELECT * FROM calories WHERE user_id = ? ORDER BY timestamp DESC", (user["id"],)).fetchall()
+        items = [dict(r) for r in rows]
+        return jsonify({"ok": True, "items": items})
+    elif request.method == "POST":
+        data = request.json
+        desc = data.get("description", "")
+        calories_val = float(data.get("calories") or 0)
+        ts = datetime.datetime.utcnow().isoformat()
+        db.execute("INSERT INTO calories (user_id, timestamp, description, calories) VALUES (?, ?, ?, ?)",
+                   (user["id"], ts, desc, calories_val))
+        db.commit()
+        return jsonify({"ok": True})
+    else:
+        # expecting json with id
+        data = request.json
+        cid = int(data.get("id"))
+        db.execute("DELETE FROM calories WHERE id = ? AND user_id = ?", (cid, user["id"]))
+        db.commit()
+        return jsonify({"ok": True})
+
+# --- Image upload & AI stub ---
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+
+def estimate_calories_from_image(image_path):
+    """
+    >>> IMPORTANT:
+    This is a placeholder/stub. Replace this function with a real
+    call to an image-recognition + nutrition API (or your own ML model).
+    The function should return a dict:
+      { "items": [{"name": "sliced pizza", "confidence": 0.9, "calories": 285.0, "serving_size": "1 slice"}],
+        "total_calories": 285.0
+      }
+    For now we do naive heuristics by filename and simple size-based scaling.
+    """
+    fname = os.path.basename(image_path).lower()
+    # very naive rules
+    mapping = {
+        "pizza": (285, "1 slice"),
+        "banana": (105, "1 medium"),
+        "salad": (150, "1 bowl"),
+        "burger": (354, "1 burger"),
+        "sushi": (48, "1 piece")
+    }
+    items = []
+    total = 0
+    for k, (cal, size) in mapping.items():
+        if k in fname:
+            items.append({"name": k, "confidence": 0.9, "calories": cal, "serving_size": size})
+            total += cal
+    if not items:
+        # fallback: open image to get dimensions and scale a default food
+        try:
+            im = Image.open(image_path)
+            w, h = im.size
+            area = w * h
+            # heuristic: larger image -> likely more food pictured -> scale
+            scale = min(max(area / (500*500), 0.5), 3.0)
+            default = 300 * scale
+            items.append({"name": "unknown_food", "confidence": 0.5, "calories": round(default, 0), "serving_size": "est"})
+            total += default
+        except Exception:
+            items.append({"name": "unknown_food", "confidence": 0.2, "calories": 300, "serving_size": "est"})
+            total += 300
+    return {"items": items, "total_calories": round(total, 1)}
+
+@app.route("/api/upload_photo", methods=["POST"])
+def upload_photo():
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "error": "not logged in"}), 403
+    if "photo" not in request.files:
+        return jsonify({"ok": False, "error": "missing file"}), 400
+    f = request.files["photo"]
+    if f.filename == "" or not allowed_file(f.filename):
+        return jsonify({"ok": False, "error": "invalid file"}), 400
+    fn = secure_filename(f.filename)
+    unique = f"{secrets.token_hex(8)}_{fn}"
+    path = os.path.join(app.config["UPLOAD_FOLDER"], unique)
+    f.save(path)
+    # call the AI stub — replace with your model/API call
+    result = estimate_calories_from_image(path)
+    # Optionally store the total as a calorie entry (user can confirm)
+    # For now return result so frontend can show and allow user to save.
+    return jsonify({"ok": True, "result": result})
+
+# --- Simple static rendering for single page app ---
+@app.route("/app")
+def app_shell():
+    # Single page app uses static files in /static
+    user = current_user()
+    return render_template("app.html", user=user)
+
+if __name__ == "__main__":
+    app.run(debug=True)
