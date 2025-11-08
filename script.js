@@ -226,22 +226,49 @@ async function uploadPhoto(){
     }
     html += `</div>`;
     
-    html += `<button id="save-photo-cal" style="width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 10px;">💾 Save ${result.total_calories} kcal to Tracker</button>`;
+    html += `<div style="padding: 15px; background: rgba(16, 185, 129, 0.1); border-radius: 12px; margin-top: 15px; text-align: center; color: #10b981; font-weight: 600;">✅ Automatically saved to tracker!</div>`;
     
     resEl.innerHTML = html;
-    document.getElementById("save-photo-cal").onclick = async () => {
-      try {
-        await api("/api/calories", "POST", { description: "Photo estimate", calories: Number(result.total_calories) });
-        alert("✅ Saved to tracker!");
-        loadCals();
-        // Clear the form
-        input.value = "";
-        const preview = el("photo-preview");
-        if (preview) preview.innerHTML = "";
-      } catch (err) {
-        alert("Error saving to tracker");
+    
+    // Create description from detected food items
+    let description = "Photo estimate";
+    if (result.items && result.items.length > 0) {
+      const foodNames = result.items
+        .filter(item => item.name && item.name !== "unknown_food")
+        .map(item => {
+          // Capitalize first letter and make it readable
+          return item.name.charAt(0).toUpperCase() + item.name.slice(1);
+        });
+      
+      if (foodNames.length > 0) {
+        if (foodNames.length === 1) {
+          description = foodNames[0];
+        } else {
+          // Join multiple items with " & "
+          description = foodNames.join(" & ");
+        }
       }
-    };
+    }
+    
+    // Automatically save to tracker
+    try {
+      await api("/api/calories", "POST", { description: description, calories: Number(result.total_calories) });
+      // Reload calories to update the list
+      loadCals();
+      // Clear the form
+      input.value = "";
+      const preview = el("photo-preview");
+      if (preview) preview.innerHTML = "";
+    } catch (err) {
+      console.error("Error saving to tracker:", err);
+      // Update the message to show error
+      const errorMsg = resEl.querySelector("div[style*='10b981']");
+      if (errorMsg) {
+        errorMsg.style.background = "rgba(239, 68, 68, 0.1)";
+        errorMsg.style.color = "var(--danger)";
+        errorMsg.textContent = "❌ Error saving to tracker. Please try again.";
+      }
+    }
   } catch (e) {
     console.error(e);
     resEl.innerHTML = `<div style="padding: 20px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; color: var(--danger); text-align: center;">❌ Error analyzing image: ${e.error || "Unknown error"}</div>`;
