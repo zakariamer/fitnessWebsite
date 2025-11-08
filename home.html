@@ -99,7 +99,7 @@
         </div>
 
         <div class="card">
-          <h2>🏋️ Exercise Progress</h2>
+          <h2>Exercise Progress</h2>
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-value">{{ progress["completed"] }}</div>
@@ -115,7 +115,7 @@
 
       <div class="grid">
         <div class="card">
-          <h2>💪 Personal Info</h2>
+          <h2>Personal Info</h2>
           <ul>
             <li><strong>Age:</strong> {{ user["age"] or "—" }}</li>
             <li><strong>BMI:</strong> {{ user["bmi"] or "—" }}</li>
@@ -124,11 +124,18 @@
         </div>
 
         <div class="card">
-          <h2>🌟 Daily Motivation</h2>
-          <blockquote id="quote"></blockquote>
+          <h2>Recent Food Tracked</h2>
         </div>
+
+        <div class="card">
+          <h2>Last Food Tracked</h2>
+        </div>
+
       </div>
     </main>
+    <footer>
+      <img src="images/Hackathon Logo.png" alt="Hackathon Logo" class="teamLogo">
+    </footer>
   </div>
 
   <script>
