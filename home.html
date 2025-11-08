@@ -19,48 +19,49 @@
         </form>
       </nav>
 
-      <!-- Temporary quick input menu (front-end only, remove once backend macros are live) -->
+      <!-- Quick daily input toggle -->
       <div id="quick-input-toggle" class="quick-input-toggle" title="Quick daily input">
         ⚙️
       </div>
-
-      <div id="quick-input-panel" class="quick-input-panel">
-        <h3>Quick Daily Input</h3>
-
-        <label>
-          Calories Today
-          <input type="number" id="qi-cal" placeholder="e.g. 2200" />
-        </label>
-
-        <label>
-          Protein (g)
-          <input type="number" id="qi-protein" placeholder="e.g. 150" />
-        </label>
-
-        <label>
-          Carbs (g)
-          <input type="number" id="qi-carbs" placeholder="e.g. 200" />
-        </label>
-
-        <label>
-          Fats (g)
-          <input type="number" id="qi-fats" placeholder="e.g. 60" />
-        </label>
-
-        <div class="qi-actions">
-          <button type="button" id="qi-save">Save</button>
-          <button type="button" id="qi-clear" class="secondary">Clear</button>
-        </div>
-
-        <p class="qi-note">
-          Front-end only. This will be removed once backend tracking is live.
-        </p>
-      </div>
-      <!-- End temporary quick input menu -->
     </header>
+
+    <!-- Quick Daily Input panel (fixed overlay near top-right) -->
+    <div id="quick-input-panel" class="quick-input-panel">
+      <h3>Quick Daily Input</h3>
+
+      <label>
+        Calories Today
+        <input type="number" id="qi-cal" placeholder="e.g. 2200" />
+      </label>
+
+      <label>
+        Protein (g)
+        <input type="number" id="qi-protein" placeholder="e.g. 150" />
+      </label>
+
+      <label>
+        Carbs (g)
+        <input type="number" id="qi-carbs" placeholder="e.g. 200" />
+      </label>
+
+      <label>
+        Fats (g)
+        <input type="number" id="qi-fats" placeholder="e.g. 60" />
+      </label>
+
+      <div class="qi-actions">
+        <button type="button" id="qi-save">Save</button>
+        <button type="button" id="qi-clear" class="secondary">Clear</button>
+      </div>
+
+      <p class="qi-note">
+        Front-end only. This will be removed once backend tracking is live.
+      </p>
+    </div>
 
     <main>
       <div class="grid">
+        <!-- Calorie + Macros -->
         <div class="card">
           <h2>🔥 Calorie Summary</h2>
 
@@ -98,8 +99,9 @@
           </div>
         </div>
 
+        <!-- Exercise Progress -->
         <div class="card">
-          <h2>Exercise Progress</h2>
+          <h2>🏋️ Exercise Progress</h2>
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-value">{{ progress["completed"] }}</div>
@@ -114,32 +116,78 @@
       </div>
 
       <div class="grid">
-        <div class="card">
-          <h2>Personal Info</h2>
+        <!-- Personal Info + Goals -->
+        <div class="card" id="personal-info-card">
+          <h2>💪 Personal Info</h2>
           <ul>
-            <li><strong>Age:</strong> {{ user["age"] or "—" }}</li>
-            <li><strong>BMI:</strong> {{ user["bmi"] or "—" }}</li>
-            <li><strong>Goal:</strong> {{ user["goal"] or "—" }}</li>
+            <li id="pi-age"><strong>Age:</strong> {{ user["age"] or "—" }}</li>
+            <li id="pi-weight"><strong>Current Weight:</strong> {{ user["weight_kg"] or "—" }} lb</li>
+            <li id="pi-goal"><strong>Goal:</strong> {{ user["goal"] or "—" }}</li>
           </ul>
+
+          <!-- Goals summary + edit button -->
+          <div class="goals-display">
+            <div><strong>Calorie Goal:</strong> <span id="goal-calories-display">Not set</span></div>
+            <div><strong>Protein Goal:</strong> <span id="goal-protein-display">Not set</span></div>
+            <div><strong>Carbs Goal:</strong> <span id="goal-carbs-display">Not set</span></div>
+            <div><strong>Fats Goal:</strong> <span id="goal-fats-display">Not set</span></div>
+          </div>
+
+          <button type="button" id="edit-goals-btn" class="edit-goals-btn">
+            Edit Goals
+          </button>
         </div>
 
+        <!-- Motivation -->
         <div class="card">
-          <h2>Recent Food Tracked</h2>
+          <h2>🌟 Daily Motivation</h2>
+          <blockquote id="quote"></blockquote>
         </div>
-
-        <div class="card">
-          <h2>Last Food Tracked</h2>
-        </div>
-
       </div>
     </main>
-    <footer>
-      <img src="images/Hackathon Logo.png" alt="Hackathon Logo" class="teamLogo">
-    </footer>
   </div>
 
-  <script>
+  <!-- Goals overlay modal (blurred full screen) -->
+  <div id="goals-overlay" class="goals-overlay">
+    <div class="goals-modal">
+      <h2>Update Your Goals</h2>
+
+      <label>
+        Daily Calories (kcal)
+        <input type="number" id="goal-calories-input" placeholder="e.g. 2200" />
+      </label>
+
+      <label>
+        Protein Goal (g)
+        <input type="number" id="goal-protein-input" placeholder="e.g. 150" />
+      </label>
+
+      <label>
+        Carbs Goal (g)
+        <input type="number" id="goal-carbs-input" placeholder="e.g. 200" />
+      </label>
+
+      <label>
+        Fats Goal (g)
+        <input type="number" id="goal-fats-input" placeholder="e.g. 60" />
+      </label>
+
+      <div class="goals-actions">
+        <button type="button" id="goals-save">Save Goals</button>
+        <button type="button" id="goals-cancel" class="secondary">Cancel</button>
+      </div>
+
+      <p class="goals-note">
+        These goals are saved only on this device for now.
+      </p>
+    </div>
+  </div>
+
+    <script>
     document.addEventListener("DOMContentLoaded", function () {
+      const STORAGE_KEY = "fitai_daily_macros";
+      const GOALS_KEY = "fitai_goals";
+
       // --- Daily quote ---
       const quotes = [
         "The pain you feel today will be the strength you feel tomorrow.",
@@ -153,53 +201,124 @@
         quoteEl.innerText = quotes[Math.floor(Math.random() * quotes.length)];
       }
 
-      const STORAGE_KEY = "fitai_daily_macros";
-
       function todayDate() {
         return new Date().toISOString().slice(0, 10);
       }
 
+      // --- Macro octa fill (uses goal as target, quick input as current) ---
       function recomputeOcta() {
         document.querySelectorAll(".macro-box").forEach((box) => {
-          const target = parseFloat(box.dataset.target) || 1;
+          const target = parseFloat(box.dataset.target) || 0;
           const valueEl = box.querySelector(".macro-value");
           const fillEl = box.querySelector(".macro-octa-fill");
-          if (!valueEl || !fillEl) return;
-          const text = valueEl.textContent.replace(/[^\d.]/g, "");
-          const current = parseFloat(text) || 0;
-          const ratio = Math.max(0, Math.min(1, current / target));
-          fillEl.style.setProperty("--fill", ratio);
+          if (!valueEl || !fillEl || target <= 0) return;
+
+          // use only the left side if it's already "X / Y"
+          const raw = (valueEl.textContent || "").trim();
+          const leftPart = raw.includes("/") ? raw.split("/")[0] : raw;
+          const current = parseFloat(leftPart.replace(/[^\d.]/g, "")) || 0;
+
+          const ratio = current / target;
+          const clamped = Math.max(0, Math.min(1, ratio));
+
+          fillEl.style.setProperty("--fill", clamped);
+
+          if (ratio >= 1) {
+            fillEl.classList.add("gold"); // meets/exceeds goal -> gold
+          } else {
+            fillEl.classList.remove("gold");
+          }
         });
       }
 
+      // --- Macro box click: toggle "current g" vs "current g / goal g" ---
+      function attachMacroBoxClickHandlers() {
+        document.querySelectorAll(".macro-box").forEach((box) => {
+          box.addEventListener("click", () => {
+            const valueEl = box.querySelector(".macro-value");
+            const target = parseFloat(box.dataset.target);
+
+            if (!valueEl || !target || isNaN(target) || target <= 0) {
+              return; // No valid goal set
+            }
+
+            const raw = (valueEl.textContent || "").trim();
+            const leftPart = raw.includes("/") ? raw.split("/")[0] : raw;
+            const current = parseFloat(leftPart.replace(/[^\d.]/g, "")) || 0;
+
+            if (box.classList.contains("showing-ratio")) {
+              // Back to "X g"
+              valueEl.textContent = current + " g";
+              box.classList.remove("showing-ratio");
+            } else {
+              // Show "X g / Y g"
+              valueEl.textContent = current + " g / " + target + " g";
+              box.classList.add("showing-ratio");
+            }
+          });
+        });
+      }
+
+      // --- Calorie click: toggle "current" vs "current / goal" ---
+      function attachCalorieClickHandler() {
+        const calEl = document.getElementById("cal-home-today");
+        if (!calEl) return;
+
+        calEl.addEventListener("click", () => {
+          const target = parseFloat(calEl.dataset.target);
+
+          // If no valid goal set, do nothing
+          if (!target || isNaN(target) || target <= 0) {
+            return;
+          }
+
+          const raw = (calEl.textContent || "").trim();
+          const leftPart = raw.includes("/") ? raw.split("/")[0] : raw;
+          const current = parseFloat(leftPart.replace(/[^\d.]/g, "")) || 0;
+
+          if (calEl.classList.contains("showing-ratio")) {
+            // Back to "X kcal"
+            calEl.textContent = current + " kcal";
+            calEl.classList.remove("showing-ratio");
+          } else {
+            // Show "X / Y kcal"
+            calEl.textContent = current + " / " + target + " kcal";
+            calEl.classList.add("showing-ratio");
+          }
+        });
+      }
+
+      // --- Apply daily macros from quick input ---
       function applyMacroDisplay(data) {
+        const calEl = document.getElementById("cal-home-today");
+
         if (!data) {
+          // just make sure octas are correct with whatever is displayed
           recomputeOcta();
           return;
         }
 
-        const calEl = document.getElementById("cal-home-today");
         if (calEl && typeof data.calories === "number") {
           calEl.textContent = data.calories + " kcal";
+          calEl.classList.remove("showing-ratio");
         }
 
         function setMacro(id, val) {
           const el = document.getElementById(id);
           if (el && typeof val === "number") {
             el.textContent = val + " g";
+            el.parentElement?.classList.remove("showing-ratio");
           }
         }
 
-        if (typeof data.protein === "number")
-          setMacro("macro-home-protein", data.protein);
-        if (typeof data.carbs === "number")
-          setMacro("macro-home-carbs", data.carbs);
-        if (typeof data.fats === "number")
-          setMacro("macro-home-fats", data.fats);
+        if (typeof data.protein === "number") setMacro("macro-home-protein", data.protein);
+        if (typeof data.carbs === "number") setMacro("macro-home-carbs", data.carbs);
+        if (typeof data.fats === "number") setMacro("macro-home-fats", data.fats);
 
         recomputeOcta();
       }
 
+      // --- Load today's quick input from localStorage ---
       function loadQuickInput() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -230,6 +349,84 @@
         }
       }
 
+      // --- Goals: apply to UI + macro targets + calorie target ---
+      function applyGoals(goals) {
+        if (!goals) return;
+
+        const calDisplay = document.getElementById("goal-calories-display");
+        const pDisplay = document.getElementById("goal-protein-display");
+        const cDisplay = document.getElementById("goal-carbs-display");
+        const fDisplay = document.getElementById("goal-fats-display");
+
+        if (calDisplay && goals.calories)
+          calDisplay.textContent = goals.calories + " kcal/day";
+        if (pDisplay && goals.protein)
+          pDisplay.textContent = goals.protein + " g";
+        if (cDisplay && goals.carbs)
+          cDisplay.textContent = goals.carbs + " g";
+        if (fDisplay && goals.fats)
+          fDisplay.textContent = goals.fats + " g";
+
+        // set calorie target on main value so it can toggle X / Y
+        const calValueEl = document.getElementById("cal-home-today");
+        if (calValueEl && goals.calories) {
+          calValueEl.dataset.target = goals.calories;
+        }
+
+        // sync macro targets
+        const proteinBox = document.querySelector('.macro-box[data-macro="protein"]');
+        const carbsBox = document.querySelector('.macro-box[data-macro="carbs"]');
+        const fatsBox = document.querySelector('.macro-box[data-macro="fats"]');
+
+        if (proteinBox && goals.protein) proteinBox.dataset.target = goals.protein;
+        if (carbsBox && goals.carbs) carbsBox.dataset.target = goals.carbs;
+        if (fatsBox && goals.fats) fatsBox.dataset.target = goals.fats;
+
+        recomputeOcta();
+      }
+
+      function loadGoals() {
+        try {
+          const raw = localStorage.getItem(GOALS_KEY);
+          if (!raw) return;
+          const goals = JSON.parse(raw);
+          applyGoals(goals);
+        } catch (e) {
+          console.error("Failed to load goals:", e);
+        }
+      }
+
+      // --- Goals overlay helpers ---
+      function openGoalsOverlay(currentGoals) {
+        const overlay = document.getElementById("goals-overlay");
+        if (!overlay) return;
+
+        const calInput = document.getElementById("goal-calories-input");
+        const pInput = document.getElementById("goal-protein-input");
+        const cInput = document.getElementById("goal-carbs-input");
+        const fInput = document.getElementById("goal-fats-input");
+
+        if (currentGoals) {
+          if (calInput) calInput.value = currentGoals.calories || "";
+          if (pInput) pInput.value = currentGoals.protein || "";
+          if (cInput) cInput.value = currentGoals.carbs || "";
+          if (fInput) fInput.value = currentGoals.fats || "";
+        } else {
+          if (calInput) calInput.value = "";
+          if (pInput) pInput.value = "";
+          if (cInput) cInput.value = "";
+          if (fInput) fInput.value = "";
+        }
+
+        overlay.classList.add("open");
+      }
+
+      function closeGoalsOverlay() {
+        const overlay = document.getElementById("goals-overlay");
+        if (overlay) overlay.classList.remove("open");
+      }
+
+      // --- Quick Input events ---
       const toggle = document.getElementById("quick-input-toggle");
       const panel = document.getElementById("quick-input-panel");
       const saveBtn = document.getElementById("qi-save");
@@ -263,13 +460,62 @@
             const el = document.getElementById(id);
             if (el) el.value = "";
           });
-          // Reload to fall back to backend-provided values
           window.location.reload();
         });
       }
 
-      // Initial draw
+      // --- Goals overlay events ---
+      const editGoalsBtn = document.getElementById("edit-goals-btn");
+      const goalsSaveBtn = document.getElementById("goals-save");
+      const goalsCancelBtn = document.getElementById("goals-cancel");
+      const goalsOverlay = document.getElementById("goals-overlay");
+
+      if (editGoalsBtn) {
+        editGoalsBtn.addEventListener("click", () => {
+          let currentGoals = null;
+          try {
+            const raw = localStorage.getItem(GOALS_KEY);
+            if (raw) currentGoals = JSON.parse(raw);
+          } catch (e) {
+            console.error("Failed to read goals:", e);
+          }
+          openGoalsOverlay(currentGoals);
+        });
+      }
+
+      if (goalsSaveBtn) {
+        goalsSaveBtn.addEventListener("click", () => {
+          const goals = {
+            calories: parseFloat(document.getElementById("goal-calories-input").value) || null,
+            protein: parseFloat(document.getElementById("goal-protein-input").value) || null,
+            carbs: parseFloat(document.getElementById("goal-carbs-input").value) || null,
+            fats: parseFloat(document.getElementById("goal-fats-input").value) || null
+          };
+          localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
+          applyGoals(goals);
+          closeGoalsOverlay();
+        });
+      }
+
+      if (goalsCancelBtn) {
+        goalsCancelBtn.addEventListener("click", () => {
+          closeGoalsOverlay();
+        });
+      }
+
+      if (goalsOverlay) {
+        goalsOverlay.addEventListener("click", (e) => {
+          if (e.target === goalsOverlay) {
+            closeGoalsOverlay();
+          }
+        });
+      }
+
+      // --- Initial draws ---
       loadQuickInput();
+      loadGoals();
+      attachMacroBoxClickHandlers();
+      attachCalorieClickHandler();
     });
   </script>
 </body>

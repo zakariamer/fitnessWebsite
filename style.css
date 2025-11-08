@@ -597,6 +597,11 @@ input[type="file"]:hover {
   height: calc(var(--fill) * 100%);
   background: linear-gradient(180deg, #8b5cf6, #6366f1);
   transform-origin: bottom;
+  transition: height 0.18s ease, background 0.18s ease;
+}
+
+.macro-octa-fill.gold {
+  background: linear-gradient(180deg, #facc15, #f97316);
 }
 .quick-input-toggle {
   position: absolute;
@@ -625,7 +630,7 @@ input[type="file"]:hover {
 .quick-input-panel {
   position: fixed;              /* float above the main cards */
   top: 100px;                   /* vertical position over the Exercise Progress card */
-  right: -260px;                  /* horizontally aligned near the gear */
+  right: 40px;                  /* horizontally aligned near the gear */
   width: 260px;
   padding: 16px 16px 14px;
   background: #ffffff;
@@ -636,6 +641,53 @@ input[type="file"]:hover {
   gap: 8px;
   z-index: 999;                 /* ensure it appears on top of all cards */
 }
+/* ---- Goals Display & Edit Button ---- */
+.goals-display {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.edit-goals-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.edit-profile-btn {
+  margin-top: 6px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #111827;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.edit-profile-btn:hover {
+  background: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.edit-goals-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 22px rgba(22, 163, 74, 0.45);
+}
+
 
 .quick-input-panel.open {
   display: flex;
@@ -721,4 +773,95 @@ input[type="file"]:hover {
     right: 12px;
     width: 230px;
   }
+}
+.goals-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(10px); /* blur everything behind */
+  z-index: 11000;
+}
+.goals-overlay.open {
+  display: flex;
+}
+
+/* ---- Goals Modal Styles ---- */
+.goals-modal {
+  width: 320px;
+  max-width: 92vw;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 20px 18px 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goals-modal h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #16a34a;
+  text-align: center;
+}
+
+.goals-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.goals-modal input {
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.goals-modal input:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.14);
+}
+
+.goals-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.goals-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 0;
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#goals-save {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+}
+
+#goals-cancel.secondary {
+  background: #f3f4ff;
+  color: #16a34a;
+}
+
+.goals-note {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: #9ca3af;
+  text-align: center;
 }
