@@ -317,9 +317,15 @@ def upload_photo():
     f.save(path)
     # call the AI stub — replace with your model/API call
     result = estimate_calories_from_image(path)
-    # Optionally store the total as a calorie entry (user can confirm)
-    # For now return result so frontend can show and allow user to save.
+    # Return the image URL so frontend can display it
+    image_url = f"/uploads/{unique}"
+    result["image_url"] = image_url
     return jsonify({"ok": True, "result": result})
+
+# Serve uploaded images
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 # --- App page ---
 @app.route("/app")
@@ -332,6 +338,9 @@ def app_shell():
 # Serve static files from root (must be last route to avoid catching other routes)
 @app.route('/<path:filename>')
 def serve_static(filename):
+    # Don't serve uploads through this route (handled by /uploads/<filename>)
+    if filename.startswith('uploads/'):
+        return "Not found", 404
     # Only allow specific file types for security
     allowed_extensions = {'.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg'}
     if any(filename.lower().endswith(ext) for ext in allowed_extensions):
