@@ -12,39 +12,59 @@
       <h1>🏠 FitAI Dashboard</h1>
       <p>Welcome back, <strong>{{ user["username"] }}</strong>!</p>
       <nav>
-        <a href="/home">Home</a> |
-        <a href="/app">App</a> |
+        <a href="/home" class="active">🏠 Home</a>
+        <a href="/app">📱 App</a>
         <form style="display:inline;" method="post" action="/logout">
-          <button type="submit" class="logout">Logout</button>
+          <button type="submit" class="logout">🚪 Logout</button>
         </form>
       </nav>
     </header>
 
     <main>
-      <div class="card">
-        <h2>🔥 Calorie Summary</h2>
-        <p>Today: <strong>{{ calories["today"] }} kcal</strong></p>
-        <p>This week: <strong>{{ calories["week"] }} kcal</strong></p>
+      <div class="grid">
+        <div class="card">
+          <h2>🔥 Calorie Summary</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ calories["today"] }}</div>
+              <div class="stat-label">Today (kcal)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ calories["week"] }}</div>
+              <div class="stat-label">This Week (kcal)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>🏋️ Exercise Progress</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">{{ progress["completed"] }}</div>
+              <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">{{ progress["remaining"] }}</div>
+              <div class="stat-label">Remaining</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>🏋️ Exercise Progress</h2>
-        <p>Completed: {{ progress["completed"] }}</p>
-        <p>Remaining: {{ progress["remaining"] }}</p>
-      </div>
+      <div class="grid">
+        <div class="card">
+          <h2>💪 Personal Info</h2>
+          <ul>
+            <li><strong>Age:</strong> {{ user["age"] or "—" }}</li>
+            <li><strong>BMI:</strong> {{ user["bmi"] or "—" }}</li>
+            <li><strong>Goal:</strong> {{ user["goal"] or "—" }}</li>
+          </ul>
+        </div>
 
-      <div class="card">
-        <h2>💪 Personal Info</h2>
-        <ul>
-          <li>Age: {{ user["age"] or "—" }}</li>
-          <li>BMI: {{ user["bmi"] or "—" }}</li>
-          <li>Goal: {{ user["goal"] or "—" }}</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h2>🌟 Motivation</h2>
-        <blockquote id="quote"></blockquote>
+        <div class="card">
+          <h2>🌟 Daily Motivation</h2>
+          <blockquote id="quote"></blockquote>
+        </div>
       </div>
     </main>
   </div>
@@ -54,8 +74,13 @@
       "Push yourself, because no one else is going to do it for you.",
       "Progress, not perfection.",
       "The pain you feel today will be the strength you feel tomorrow.",
-      "Don’t stop when you’re tired. Stop when you’re done.",
-      "Discipline beats motivation."
+      "Don't stop when you're tired. Stop when you're done.",
+      "Discipline beats motivation.",
+      "Your body can stand almost anything. It's your mind you have to convince.",
+      "The only bad workout is the one that didn't happen.",
+      "Strength doesn't come from what you can do. It comes from overcoming the things you once thought you couldn't.",
+      "Take care of your body. It's the only place you have to live.",
+      "Success is the sum of small efforts repeated day in and day out."
     ];
     document.getElementById("quote").innerText = quotes[Math.floor(Math.random()*quotes.length)];
   </script>

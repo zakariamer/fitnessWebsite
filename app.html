@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FitAI App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📱 FitAI App</h1>
+      <p>Track calories, get recommendations, and analyze food photos</p>
+      <nav>
+        <a href="/home">🏠 Home</a>
+        <a href="/app" class="active">📱 App</a>
+        <form style="display:inline;" method="post" action="/logout">
+          <button type="submit" class="logout">🚪 Logout</button>
+        </form>
+      </nav>
+    </header>
+
+    <main>
+      <div class="card">
+        <div class="toprow">
+          <div>
+            <h3 id="welcome">Welcome, {{ user["username"] }}</h3>
+            <div id="profile-summary">
+              Age: {{ user["age"] or "—" }} • BMI: {{ user["bmi"] or "—" }} • Goal: {{ user["goal"] or "—" }}
+            </div>
+          </div>
+        </div>
+
+        <section>
+          <h4>💡 Exercise Recommendations</h4>
+          <ul id="recommendations"></ul>
+          <button id="refresh-recs">🔄 Refresh Recommendations</button>
+        </section>
+
+        <section>
+          <h4>📊 Calorie Tracker</h4>
+          <form id="cal-manual-form" class="form">
+            <input id="cal-desc" placeholder="Description (e.g., lunch, breakfast)" />
+            <input id="cal-num" type="number" placeholder="Calories" />
+            <button type="submit">➕ Add Entry</button>
+          </form>
+          <ul id="cal-items"></ul>
+        </section>
+
+        <section>
+          <h4>📸 Estimate Calories from Photo</h4>
+          <p style="color: var(--text-light); margin-bottom: 15px;">
+            Upload a photo of your meal and let AI estimate the calories!
+          </p>
+          <input type="file" id="photo-input" accept="image/*" />
+          <button id="upload-photo">📤 Upload & Analyze</button>
+          <div id="photo-result"></div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <small>FitAI — Your personalized fitness companion</small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Initialize app functionality when page loads
+    document.addEventListener("DOMContentLoaded", function() {
+      // Load recommendations and calories
+      if (typeof loadRecs === 'function') {
+        loadRecs();
+      }
+      if (typeof loadCals === 'function') {
+        loadCals();
+      }
+    });
+  </script>
+</body>
+</html>
+

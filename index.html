@@ -3,40 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FitAI — personalized fitness</title>
+  <title>FitAI — Personalized Fitness</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="root" class="container">
     <header>
-      <h1>FitAI</h1>
+      <h1>💪 FitAI</h1>
       <p>Personalized exercise + calorie tracker (AI-powered photo calorie estimation)</p>
+      {% if user %}
+      <nav>
+        <a href="/home">🏠 Home</a>
+        <a href="/app">📱 App</a>
+        <form style="display:inline;" method="post" action="/logout">
+          <button type="submit" class="logout">🚪 Logout</button>
+        </form>
+      </nav>
+      {% endif %}
     </header>
     <main>
       <div class="card" id="auth-card">
         <div id="auth-forms">
-          <h2>Get started</h2>
+          <h2>Get Started</h2>
           <div class="tab">
             <button id="show-login" class="tabbtn active">Login</button>
             <button id="show-register" class="tabbtn">Register</button>
           </div>
           <div id="login-form" class="form">
-            <input id="login-username" placeholder="username" />
-            <input id="login-password" type="password" placeholder="password" />
-            <button id="login-btn">Login</button>
+            <input id="login-username" placeholder="Username" />
+            <input id="login-password" type="password" placeholder="Password" />
+            <button id="login-btn">🔐 Login</button>
           </div>
           <div id="register-form" class="form hidden">
-            <input id="reg-username" placeholder="username" />
-            <input id="reg-password" type="password" placeholder="password" />
-            <input id="reg-age" type="number" placeholder="age" />
-            <input id="reg-height" type="number" placeholder="height (cm)" />
-            <input id="reg-weight" type="number" placeholder="weight (kg)" />
+            <input id="reg-username" placeholder="Username" />
+            <input id="reg-password" type="password" placeholder="Password" />
+            <input id="reg-age" type="number" placeholder="Age" />
+            <input id="reg-height" type="number" placeholder="Height (cm)" />
+            <input id="reg-weight" type="number" placeholder="Weight (kg)" />
             <select id="reg-goal">
               <option value="maintain">Maintain</option>
               <option value="lose">Lose weight</option>
               <option value="gain">Gain muscle</option>
             </select>
-            <button id="register-btn">Register & Continue</button>
+            <button id="register-btn">✨ Register & Continue</button>
           </div>
         </div>
       </div>
@@ -49,30 +58,33 @@
               <div id="profile-summary"></div>
             </div>
             <div>
-              <button id="logout-btn">Logout</button>
+              <a href="/home" style="text-decoration: none;">
+                <button>🏠 Go to Dashboard</button>
+              </a>
+              <button id="logout-btn" class="secondary" style="margin-left: 10px;">Logout</button>
             </div>
           </div>
 
           <section>
-            <h4>Exercise Recommendations</h4>
+            <h4>💡 Exercise Recommendations</h4>
             <ul id="recommendations"></ul>
-            <button id="refresh-recs">Refresh</button>
+            <button id="refresh-recs">🔄 Refresh</button>
           </section>
 
           <section>
-            <h4>Calorie Tracker</h4>
-            <form id="cal-manual-form">
+            <h4>📊 Calorie Tracker</h4>
+            <form id="cal-manual-form" class="form">
               <input id="cal-desc" placeholder="Description (e.g., lunch)" />
               <input id="cal-num" type="number" placeholder="Calories" />
-              <button type="submit">Add</button>
+              <button type="submit">➕ Add</button>
             </form>
             <ul id="cal-items"></ul>
           </section>
 
           <section>
-            <h4>Estimate calories from photo</h4>
+            <h4>📸 Estimate calories from photo</h4>
             <input type="file" id="photo-input" accept="image/*" />
-            <button id="upload-photo">Upload & Analyze</button>
+            <button id="upload-photo">📤 Upload & Analyze</button>
             <div id="photo-result"></div>
           </section>
         </div>
@@ -80,7 +92,7 @@
     </main>
 
     <footer>
-      <small>Starter project — replace AI stubs with your model / API.</small>
+      <small>FitAI — Your personalized fitness companion powered by AI</small>
     </footer>
   </div>
 

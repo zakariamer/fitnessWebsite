@@ -64,8 +64,8 @@ async function doRegister(){
   };
   try {
     await api("/register", "POST", body);
-    const prof = await api("/api/profile");
-    showApp(prof.user);
+    // Redirect to home page after successful registration
+    window.location.href = "/home";
   } catch (e) {
     alert(e.error || "Registration failed");
   }
@@ -74,16 +74,20 @@ async function doRegister(){
 async function doLogin(){
   try {
     await api("/login", "POST", { username: el("login-username").value, password: el("login-password").value });
-    const prof = await api("/api/profile");
-    showApp(prof.user);
+    // Redirect to home page after successful login
+    window.location.href = "/home";
   } catch (e) {
     alert(e.error || "Login failed");
   }
 }
 
 async function doLogout(){
-  await api("/logout", "POST");
-  location.reload();
+  try {
+    await api("/logout", "POST");
+    window.location.href = "/";
+  } catch (e) {
+    window.location.href = "/";
+  }
 }
 
 async function loadRecs(){

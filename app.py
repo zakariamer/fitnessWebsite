@@ -3,7 +3,7 @@ import sqlite3
 import secrets
 import datetime
 from flask import (
-    Flask, g, render_template, request, redirect, url_for, session, jsonify
+    Flask, g, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17,7 +17,7 @@ ALLOWED_EXT = {"png", "jpg", "jpeg"}
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 app.secret_key = APP_SECRET
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 DATABASE = os.path.join(os.path.dirname(__file__), "data.sqlite")
@@ -56,8 +56,8 @@ def init_db():
     db.executescript(schema)
     db.commit()
 
-@app.before_first_request
-def startup():
+# Initialize database on startup
+with app.app_context():
     init_db()
 
 @app.teardown_appcontext
@@ -125,7 +125,38 @@ def login():
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return jsonify({"ok": True})
+    # Check if it's a JSON request (from JavaScript) or form submission
+    if request.is_json or request.content_type == "application/json":
+        return jsonify({"ok": True})
+    return redirect(url_for("index"))
+
+@app.route("/home")
+def home():
+    user = current_user()
+    if not user:
+        return redirect(url_for("index"))
+    db = get_db()
+    # Calculate today's calories (SQLite stores ISO format strings)
+    today_start = datetime.datetime.utcnow().date().isoformat() + "T00:00:00"
+    today_end = datetime.datetime.utcnow().date().isoformat() + "T23:59:59"
+    today_rows = db.execute(
+        "SELECT SUM(calories) as total FROM calories WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?",
+        (user["id"], today_start, today_end)
+    ).fetchone()
+    today_cals = today_rows["total"] or 0
+    
+    # Calculate week's calories
+    week_ago = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat()
+    week_rows = db.execute(
+        "SELECT SUM(calories) as total FROM calories WHERE user_id = ? AND timestamp >= ?",
+        (user["id"], week_ago)
+    ).fetchone()
+    week_cals = week_rows["total"] or 0
+    
+    calories = {"today": int(today_cals), "week": int(week_cals)}
+    progress = {"completed": "0 workouts", "remaining": "3 workouts this week"}
+    
+    return render_template("home.html", user=dict(user), calories=calories, progress=progress)
 
 # --- Profile & recommendations ---
 @app.route("/api/profile", methods=["GET", "POST"])
@@ -290,12 +321,22 @@ def upload_photo():
     # For now return result so frontend can show and allow user to save.
     return jsonify({"ok": True, "result": result})
 
-# --- Simple static rendering for single page app ---
+# --- App page ---
 @app.route("/app")
 def app_shell():
-    # Single page app uses static files in /static
     user = current_user()
-    return render_template("app.html", user=user)
+    if not user:
+        return redirect(url_for("index"))
+    return render_template("app.html", user=dict(user))
+
+# Serve static files from root (must be last route to avoid catching other routes)
+@app.route('/<path:filename>')
+def serve_static(filename):
+    # Only allow specific file types for security
+    allowed_extensions = {'.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg'}
+    if any(filename.lower().endswith(ext) for ext in allowed_extensions):
+        return send_from_directory('.', filename)
+    return "Not found", 404
 
 if __name__ == "__main__":
     app.run(debug=True)
