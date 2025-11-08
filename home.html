@@ -18,20 +18,82 @@
           <button type="submit" class="logout">🚪 Logout</button>
         </form>
       </nav>
+
+      <!-- Temporary quick input menu (front-end only, remove once backend macros are live) -->
+      <div id="quick-input-toggle" class="quick-input-toggle" title="Quick daily input">
+        ⚙️
+      </div>
+
+      <div id="quick-input-panel" class="quick-input-panel">
+        <h3>Quick Daily Input</h3>
+
+        <label>
+          Calories Today
+          <input type="number" id="qi-cal" placeholder="e.g. 2200" />
+        </label>
+
+        <label>
+          Protein (g)
+          <input type="number" id="qi-protein" placeholder="e.g. 150" />
+        </label>
+
+        <label>
+          Carbs (g)
+          <input type="number" id="qi-carbs" placeholder="e.g. 200" />
+        </label>
+
+        <label>
+          Fats (g)
+          <input type="number" id="qi-fats" placeholder="e.g. 60" />
+        </label>
+
+        <div class="qi-actions">
+          <button type="button" id="qi-save">Save</button>
+          <button type="button" id="qi-clear" class="secondary">Clear</button>
+        </div>
+
+        <p class="qi-note">
+          Front-end only. This will be removed once backend tracking is live.
+        </p>
+      </div>
+      <!-- End temporary quick input menu -->
     </header>
 
     <main>
       <div class="grid">
         <div class="card">
           <h2>🔥 Calorie Summary</h2>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value">{{ calories["today"] }}</div>
-              <div class="stat-label">Today (kcal)</div>
+
+          <!-- Big today calories at top -->
+          <div class="cal-today-wrapper">
+            <div class="cal-label">Today</div>
+            <div id="cal-home-today" class="cal-value">
+              {{ calories["today"] }} kcal
             </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ calories["week"] }}</div>
-              <div class="stat-label">This Week (kcal)</div>
+          </div>
+
+          <!-- Three macro slots underneath -->
+          <div class="macro-grid">
+            <div class="macro-box" data-macro="protein" data-target="150">
+              <div class="macro-label">Protein</div>
+              <div id="macro-home-protein" class="macro-value">0 g</div>
+              <div class="macro-octa">
+                <div class="macro-octa-fill"></div>
+              </div>
+            </div>
+            <div class="macro-box" data-macro="carbs" data-target="200">
+              <div class="macro-label">Carbs</div>
+              <div id="macro-home-carbs" class="macro-value">0 g</div>
+              <div class="macro-octa">
+                <div class="macro-octa-fill"></div>
+              </div>
+            </div>
+            <div class="macro-box" data-macro="fats" data-target="60">
+              <div class="macro-label">Fats</div>
+              <div id="macro-home-fats" class="macro-value">0 g</div>
+              <div class="macro-octa">
+                <div class="macro-octa-fill"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -70,19 +132,138 @@
   </div>
 
   <script>
-    const quotes = [
-      "Push yourself, because no one else is going to do it for you.",
-      "Progress, not perfection.",
-      "The pain you feel today will be the strength you feel tomorrow.",
-      "Don't stop when you're tired. Stop when you're done.",
-      "Discipline beats motivation.",
-      "Your body can stand almost anything. It's your mind you have to convince.",
-      "The only bad workout is the one that didn't happen.",
-      "Strength doesn't come from what you can do. It comes from overcoming the things you once thought you couldn't.",
-      "Take care of your body. It's the only place you have to live.",
-      "Success is the sum of small efforts repeated day in and day out."
-    ];
-    document.getElementById("quote").innerText = quotes[Math.floor(Math.random()*quotes.length)];
+    document.addEventListener("DOMContentLoaded", function () {
+      // --- Daily quote ---
+      const quotes = [
+        "The pain you feel today will be the strength you feel tomorrow.",
+        "Small steps every day lead to big results.",
+        "Discipline is choosing what you want most over what you want now.",
+        "Your future self is watching. Don’t let them down.",
+        "Success is the sum of small efforts repeated day in and day out."
+      ];
+      const quoteEl = document.getElementById("quote");
+      if (quoteEl) {
+        quoteEl.innerText = quotes[Math.floor(Math.random() * quotes.length)];
+      }
+
+      const STORAGE_KEY = "fitai_daily_macros";
+
+      function todayDate() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function recomputeOcta() {
+        document.querySelectorAll(".macro-box").forEach((box) => {
+          const target = parseFloat(box.dataset.target) || 1;
+          const valueEl = box.querySelector(".macro-value");
+          const fillEl = box.querySelector(".macro-octa-fill");
+          if (!valueEl || !fillEl) return;
+          const text = valueEl.textContent.replace(/[^\d.]/g, "");
+          const current = parseFloat(text) || 0;
+          const ratio = Math.max(0, Math.min(1, current / target));
+          fillEl.style.setProperty("--fill", ratio);
+        });
+      }
+
+      function applyMacroDisplay(data) {
+        if (!data) {
+          recomputeOcta();
+          return;
+        }
+
+        const calEl = document.getElementById("cal-home-today");
+        if (calEl && typeof data.calories === "number") {
+          calEl.textContent = data.calories + " kcal";
+        }
+
+        function setMacro(id, val) {
+          const el = document.getElementById(id);
+          if (el && typeof val === "number") {
+            el.textContent = val + " g";
+          }
+        }
+
+        if (typeof data.protein === "number")
+          setMacro("macro-home-protein", data.protein);
+        if (typeof data.carbs === "number")
+          setMacro("macro-home-carbs", data.carbs);
+        if (typeof data.fats === "number")
+          setMacro("macro-home-fats", data.fats);
+
+        recomputeOcta();
+      }
+
+      function loadQuickInput() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            recomputeOcta();
+            return;
+          }
+          const parsed = JSON.parse(raw);
+          if (parsed.date !== todayDate()) {
+            recomputeOcta();
+            return;
+          }
+
+          const cal = document.getElementById("qi-cal");
+          const p = document.getElementById("qi-protein");
+          const c = document.getElementById("qi-carbs");
+          const f = document.getElementById("qi-fats");
+
+          if (cal && parsed.calories != null) cal.value = parsed.calories;
+          if (p && parsed.protein != null) p.value = parsed.protein;
+          if (c && parsed.carbs != null) c.value = parsed.carbs;
+          if (f && parsed.fats != null) f.value = parsed.fats;
+
+          applyMacroDisplay(parsed);
+        } catch (e) {
+          console.error("Failed to load quick input:", e);
+          recomputeOcta();
+        }
+      }
+
+      const toggle = document.getElementById("quick-input-toggle");
+      const panel = document.getElementById("quick-input-panel");
+      const saveBtn = document.getElementById("qi-save");
+      const clearBtn = document.getElementById("qi-clear");
+
+      if (toggle && panel) {
+        toggle.addEventListener("click", () => {
+          panel.classList.toggle("open");
+        });
+      }
+
+      if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+          const data = {
+            date: todayDate(),
+            calories: parseFloat(document.getElementById("qi-cal").value) || 0,
+            protein: parseFloat(document.getElementById("qi-protein").value) || 0,
+            carbs: parseFloat(document.getElementById("qi-carbs").value) || 0,
+            fats: parseFloat(document.getElementById("qi-fats").value) || 0
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          applyMacroDisplay(data);
+        });
+      }
+
+      if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+          localStorage.removeItem(STORAGE_KEY);
+          if (panel) panel.classList.remove("open");
+          ["qi-cal", "qi-protein", "qi-carbs", "qi-fats"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+          });
+          // Reload to fall back to backend-provided values
+          window.location.reload();
+        });
+      }
+
+      // Initial draw
+      loadQuickInput();
+    });
   </script>
 </body>
 </html>
