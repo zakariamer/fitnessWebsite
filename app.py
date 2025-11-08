@@ -2,6 +2,7 @@ import os
 import sqlite3
 import secrets
 import datetime
+import requests
 from flask import (
     Flask, g, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 )
@@ -13,6 +14,8 @@ from PIL import Image
 APP_SECRET = os.environ.get("APP_SECRET", secrets.token_hex(16))
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg"}
+# Spoonacular API Key - Get free key at https://spoonacular.com/food-api
+SPOONACULAR_API_KEY = os.environ.get("SPOONACULAR_API_KEY", "")
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -261,24 +264,102 @@ def allowed_file(filename):
 
 def estimate_calories_from_image(image_path):
     """
-    >>> IMPORTANT:
-    This is a placeholder/stub. Replace this function with a real
-    call to an image-recognition + nutrition API (or your own ML model).
-    The function should return a dict:
-      { "items": [{"name": "sliced pizza", "confidence": 0.9, "calories": 285.0, "serving_size": "1 slice"}],
-        "total_calories": 285.0
-      }
-    For now we do naive heuristics by filename and simple size-based scaling.
+    Uses Spoonacular Food Recognition API to identify food and estimate calories.
+    Falls back to simple heuristics if API key is not set.
+    Returns: { "items": [{"name": "...", "confidence": 0.9, "calories": 285.0, "serving_size": "..."}],
+               "total_calories": 285.0 }
     """
+    # Try using Spoonacular API if key is available
+    if SPOONACULAR_API_KEY:
+        try:
+            # Read image file
+            with open(image_path, 'rb') as img_file:
+                img_data = img_file.read()
+            
+            # Call Spoonacular Food Recognition API (Classify a Food Image)
+            url = "https://api.spoonacular.com/food/images/classify"
+            headers = {
+                "x-api-key": SPOONACULAR_API_KEY
+            }
+            files = {
+                "file": (os.path.basename(image_path), img_data, "image/jpeg")
+            }
+            
+            response = requests.post(url, headers=headers, files=files, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                items = []
+                total_calories = 0
+                
+                # Process recognized food categories
+                category = data.get("category", "")
+                if category:
+                    confidence = data.get("confidence", 0.7)
+                    food_name = category.replace("_", " ").title()
+                    
+                    # Get nutrition info for the recognized food
+                    # Use the search endpoint to find nutrition data
+                    search_url = "https://api.spoonacular.com/food/products/search"
+                    search_params = {
+                        "query": category,
+                        "number": 1,
+                        "apiKey": SPOONACULAR_API_KEY
+                    }
+                    
+                    calories_per_serving = 250  # Default estimate
+                    serving_size = "1 serving"
+                    
+                    try:
+                        search_response = requests.get(search_url, params=search_params, timeout=10)
+                        if search_response.status_code == 200:
+                            search_data = search_response.json()
+                            if "products" in search_data and len(search_data["products"]) > 0:
+                                product = search_data["products"][0]
+                                # Try to get nutrition info
+                                if "nutrition" in product:
+                                    nutrition = product["nutrition"]
+                                    if "calories" in nutrition:
+                                        calories_per_serving = int(nutrition["calories"])
+                                    if "servingSize" in nutrition:
+                                        serving_size = nutrition["servingSize"]
+                    except:
+                        pass  # Use defaults if search fails
+                    
+                    items.append({
+                        "name": food_name,
+                        "confidence": min(float(confidence), 0.95),
+                        "calories": calories_per_serving,
+                        "serving_size": serving_size
+                    })
+                    total_calories = calories_per_serving
+                
+                if items:
+                    return {"items": items, "total_calories": round(total_calories, 1)}
+        except Exception as e:
+            print(f"Spoonacular API error: {e}")
+            # Fall through to fallback method
+    
+    # Fallback: Simple filename-based recognition (original method)
     fname = os.path.basename(image_path).lower()
-    # very naive rules
     mapping = {
         "pizza": (285, "1 slice"),
         "banana": (105, "1 medium"),
         "salad": (150, "1 bowl"),
         "burger": (354, "1 burger"),
         "sushi": (48, "1 piece"),
-        "chicken": (165, "1 chicken breast")
+        "chicken": (165, "1 chicken breast"),
+        "apple": (95, "1 medium"),
+        "orange": (62, "1 medium"),
+        "bread": (79, "1 slice"),
+        "rice": (130, "1 cup cooked"),
+        "pasta": (131, "1 cup cooked"),
+        "egg": (78, "1 large"),
+        "milk": (103, "1 cup"),
+        "cheese": (113, "1 oz"),
+        "fish": (206, "1 fillet"),
+        "beef": (250, "3 oz"),
+        "pork": (242, "3 oz")
     }
     items = []
     total = 0
@@ -286,13 +367,13 @@ def estimate_calories_from_image(image_path):
         if k in fname:
             items.append({"name": k, "confidence": 0.9, "calories": cal, "serving_size": size})
             total += cal
+    
     if not items:
-        # fallback: open image to get dimensions and scale a default food
+        # Final fallback: estimate based on image size
         try:
             im = Image.open(image_path)
             w, h = im.size
             area = w * h
-            # heuristic: larger image -> likely more food pictured -> scale
             scale = min(max(area / (500*500), 0.5), 3.0)
             default = 300 * scale
             items.append({"name": "unknown_food", "confidence": 0.5, "calories": round(default, 0), "serving_size": "est"})
@@ -300,6 +381,7 @@ def estimate_calories_from_image(image_path):
         except Exception:
             items.append({"name": "unknown_food", "confidence": 0.2, "calories": 300, "serving_size": "est"})
             total += 300
+    
     return {"items": items, "total_calories": round(total, 1)}
 
 @app.route("/api/upload_photo", methods=["POST"])
